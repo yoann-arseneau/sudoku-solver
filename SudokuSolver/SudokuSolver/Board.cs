@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Numerics;
 using System.Text;
+using System.Threading;
 
 namespace SudokuSolver {
 	public class Board : IReadOnlyList<Cell> {
@@ -19,6 +21,11 @@ namespace SudokuSolver {
 			}
 		}
 
+		public ReadOnlyCollection<Cell> Cells { get; }
+		public ReadOnlyCollection<CellGroup> Rows { get; }
+		public ReadOnlyCollection<CellGroup> Columns { get; }
+		public ReadOnlyCollection<CellGroup> Squares { get; }
+
 		public int Count => _Cells.Length;
 
 		private readonly Cell[] _Cells;
@@ -31,6 +38,11 @@ namespace SudokuSolver {
 			_Rows = new CellGroup[9];
 			_Columns = new CellGroup[9];
 			_Squares = new CellGroup[9];
+
+			Cells = new(_Cells);
+			Rows = new(_Rows);
+			Columns = new(_Columns);
+			Squares = new(_Squares);
 
 			// populate cells
 			for (var i = 0; i < _Cells.Length; ++i) {
@@ -67,10 +79,6 @@ namespace SudokuSolver {
 				}
 			}
 		}
-
-		public CellGroup GetRow(int index) => _Rows[index];
-		public CellGroup GetColumn(int index) => _Columns[index];
-		public CellGroup GetSquare(int index) => _Squares[index];
 
 		public IEnumerator<Cell> GetEnumerator() => ((IEnumerable<Cell>)_Cells).GetEnumerator();
 		IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
