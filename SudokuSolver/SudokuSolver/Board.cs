@@ -1,12 +1,23 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
+using System.Text;
 
 namespace SudokuSolver {
 	public class Board : IReadOnlyList<Cell> {
 		public Cell this[int index] => _Cells[index];
+		public Cell this[int row, int col] {
+			get {
+				if (row is < 0 or >= 9) {
+					throw new ArgumentOutOfRangeException(nameof(row));
+				}
+				if (col is < 0 or >= 9) {
+					throw new ArgumentOutOfRangeException(nameof(col));
+				}
+				return _Cells[row * 9 + col];
+			}
+		}
 
 		public int Count => _Cells.Length;
 
@@ -17,13 +28,43 @@ namespace SudokuSolver {
 
 		public Board() {
 			_Cells = new Cell[9 * 9];
+			_Rows = new CellGroup[9];
+			_Columns = new CellGroup[9];
+			_Squares = new CellGroup[9];
+
+			// populate cells
 			for (var i = 0; i < _Cells.Length; ++i) {
 				_Cells[i] = new();
 			}
-			for (var gi = 0; gi < 9; ++gi) {
-				_Rows[gi] = new(_Cells[gi..(gi + 9)]);
-				_Columns[gi] = new(_Cells.Where((_, ci) => ci % 9 == ci));
-				_Squares[gi] = new(_Cells.Where((_, ci) => (ci % 9) / 3 == gi % 3 && (ci / 27) == gi % 3));
+
+			// populate groups
+			for (var i = 0; i < 9; ++i) {
+				_Rows[i] = new(getRow(i));
+				_Columns[i] = new(getCol(i));
+				_Squares[i] = new(getSqr(i));
+			}
+
+			return;
+
+			IEnumerable<Cell> getRow(int ri) {
+				var rOffset = ri * 9;
+				for (var cOffset = 0; cOffset < 9; ++cOffset) {
+					yield return this[rOffset + cOffset];
+				}
+			}
+			IEnumerable<Cell> getCol(int ci) {
+				for (var ri = 0; ri < 9; ++ri) {
+					yield return this[ri, ci];
+				}
+			}
+			IEnumerable<Cell> getSqr(int si) {
+				var sOffset = (si / 3 * 27) + (si % 3) * 3;
+				for (var ri = 0; ri < 3; ++ri) {
+					var rOffset = ri * 9;
+					yield return this[sOffset + rOffset + 0];
+					yield return this[sOffset + rOffset + 1];
+					yield return this[sOffset + rOffset + 2];
+				}
 			}
 		}
 
@@ -42,8 +83,9 @@ namespace SudokuSolver {
 		private readonly Cell[] _Cells;
 
 		public CellGroup(IEnumerable<Cell> cells) {
-			if (cells is null)
+			if (cells is null) {
 				throw new ArgumentNullException(nameof(cells));
+			}
 
 			_Cells = new Cell[9];
 			var i = 0;
@@ -54,7 +96,10 @@ namespace SudokuSolver {
 				if (cell is null) {
 					throw new ArgumentException("contains null cell", nameof(cells));
 				}
-				_Cells[i] = cell;
+				_Cells[i++] = cell;
+			}
+			if (i != 9) {
+				throw new ArgumentException("expecting 9 cells", nameof(cells));
 			}
 		}
 
@@ -70,6 +115,8 @@ namespace SudokuSolver {
 
 		public IEnumerator<Cell> GetEnumerator() => (IEnumerator<Cell>)_Cells.GetEnumerator();
 		IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+		public override string ToString() => new StringBuilder("Group(").AppendJoin(", ", (object[])_Cells).Append(')').ToString();
 	}
 	public class Cell {
 		public NumberSet Annotations => _Annotations;
@@ -98,12 +145,14 @@ namespace SudokuSolver {
 				if (number is < 1 or > 9) {
 					throw new ArgumentOutOfRangeException(nameof(number));
 				}
+
 				return (_bits & (1 << (number - 1))) != 0;
 			}
 			set {
 				if (number is < 1 or > 9) {
 					throw new ArgumentOutOfRangeException(nameof(number));
 				}
+
 				var mask = 1u << (number - 1);
 				if (value) {
 					_bits |= mask;
