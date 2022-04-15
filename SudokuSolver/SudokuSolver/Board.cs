@@ -114,9 +114,7 @@ namespace SudokuSolver {
 		public NumberSet GetAnnotation() {
 			NumberSet set = new();
 			for (int i = 0; i < _Cells.Length; i++) {
-				if (_Cells[i].Number is int number) {
-					set[number] = true;
-				}
+				set |= _Cells[i];
 			}
 			return set;
 		}
@@ -147,7 +145,22 @@ namespace SudokuSolver {
 		public void SetAnnotation(int number, bool value) => _Annotations[number] = value;
 		public void ClearAnnotations() => _Annotations.Clear();
 	}
-	public struct NumberSet {
+	public struct NumberSet : IEquatable<NumberSet> {
+		public static bool operator ==(NumberSet lhs, NumberSet rhs) => lhs._bits == rhs._bits;
+		public static bool operator !=(NumberSet lhs, NumberSet rhs) => !(lhs == rhs);
+
+		public static NumberSet operator |(NumberSet lhs, Cell rhs) {
+			if (rhs.Number is int n and >= 1 and <= 9) {
+				lhs[n] = true;
+			}
+			return lhs;
+		}
+		public static NumberSet operator |(NumberSet lhs, NumberSet rhs) {
+			return new() { _bits = lhs._bits | rhs._bits };
+		}
+
+		public static NumberSet operator &(NumberSet lhs, NumberSet rhs) => new() { _bits = lhs._bits & rhs._bits };
+
 		public bool this[int number] {
 			get {
 				if (number is < 1 or > 9) {
@@ -176,5 +189,10 @@ namespace SudokuSolver {
 		private uint _bits;
 
 		public void Clear() => _bits = 0;
+
+		public bool Equals(NumberSet other) => this == other;
+
+		public override bool Equals(object obj) => obj is NumberSet other && this == other;
+		public override int GetHashCode() => _bits.GetHashCode();
 	}
 }
