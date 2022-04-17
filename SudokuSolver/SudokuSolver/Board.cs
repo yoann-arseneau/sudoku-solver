@@ -337,7 +337,7 @@ namespace SudokuSolver {
 		///     Accumulate all unique numbers in this group into a
 		///     <see cref="NumberSet"/>.
 		/// </summary>
-		public NumberSet GetAnnotation() {
+		public NumberSet GetNumberSet() {
 			NumberSet set = new();
 			for (int i = 0; i < _Cells.Length; i++) {
 				set |= _Cells[i];
@@ -384,8 +384,11 @@ namespace SudokuSolver {
 	}
 	/// <summary>Represents a cell in a Sudoku game board.</summary>
 	public class Cell {
-		/// <summary>A copy of this cell's annotations.</summary>
-		public NumberSet Annotations => _Annotations;
+		/// <summary>Gets or sets this cell's annotations.</summary>
+		public NumberSet Annotations {
+			get => _Annotations;
+			set => _Annotations = value;
+		}
 		/// <summary>
 		///     The current value of this cell, or <see langword="null"/> if this
 		///     cell is empty.
@@ -417,9 +420,6 @@ namespace SudokuSolver {
 		///     Whether annotation should be set or cleared.
 		/// </param>
 		public void SetAnnotation(int number, bool value) => _Annotations[number] = value;
-		/// <summary>Overwrites the annotations on this cell.</summary>
-		/// <param name="values">The new annotations for this cell.</param>
-		public void SetAnnotations(NumberSet values) => _Annotations = values;
 		/// <summary>Clears all annotations on this cell.</summary>
 		public void ClearAnnotations() => _Annotations.Clear();
 	}
@@ -428,21 +428,43 @@ namespace SudokuSolver {
 	///     <c>[1-9]</c>.
 	/// </summary>
 	public struct NumberSet : IEquatable<NumberSet> {
+		public static implicit operator NumberSet(int? number) => number ?? default;
+		public static implicit operator NumberSet(int number) {
+			if (number is >= 1 and <= 9) {
+				return new() { _bits = 1u << (number - 1) };
+			}
+			else {
+				return default;
+			}
+		}
+
 		public static bool operator ==(NumberSet lhs, NumberSet rhs) => lhs._bits == rhs._bits;
 		public static bool operator !=(NumberSet lhs, NumberSet rhs) => !(lhs == rhs);
 
-		public static NumberSet operator |(NumberSet lhs, Cell rhs) {
-			if (rhs.Number is int n and >= 1 and <= 9) {
-				lhs[n] = true;
-			}
-			return lhs;
+		public static NumberSet operator ~(NumberSet set) {
+			return new() { _bits = ~set._bits & 0x1FF };
 		}
+
 		public static NumberSet operator |(NumberSet lhs, NumberSet rhs) {
 			return new() { _bits = lhs._bits | rhs._bits };
 		}
+		public static NumberSet operator |(NumberSet lhs, Cell rhs) => lhs | rhs.Number;
+		public static NumberSet operator |(Cell lhs, NumberSet rhs) => lhs.Number | rhs;
 
 		public static NumberSet operator &(NumberSet lhs, NumberSet rhs) {
 			return new() { _bits = lhs._bits & rhs._bits };
+		}
+		public static NumberSet operator &(NumberSet lhs, Cell rhs) => lhs & rhs.Number;
+		public static NumberSet operator &(Cell lhs, NumberSet rhs) => lhs.Number & rhs;
+
+		public static NumberSet Empty => default;
+		public static NumberSet All => new() { _bits = 0x1FF };
+
+		public static NumberSet FromMask(uint mask) {
+			if ((mask & ~0x1FF) != 0) {
+				throw new ArgumentOutOfRangeException(nameof(mask));
+			}
+			return new() { _bits = mask };
 		}
 
 		public bool this[int number] {
@@ -479,5 +501,21 @@ namespace SudokuSolver {
 
 		public override bool Equals(object obj) => obj is NumberSet other && this == other;
 		public override int GetHashCode() => _bits.GetHashCode();
+
+		public override string ToString() {
+			StringBuilder sb = new(nameof(NumberSet).Length + 2 + 9);
+			sb.Append(nameof(NumberSet))
+				.Append('(');
+			var bits = _bits;
+			var i = 0;
+			while (bits != 0) {
+				var n = BitOperations.TrailingZeroCount(bits);
+				i += n + 1;
+				bits >>= n + 1;
+				sb.Append(i);
+			}
+			return sb.Append(')')
+				.ToString();
+		}
 	}
 }
